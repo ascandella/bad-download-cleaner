@@ -75,4 +75,6 @@ func scan(client *Client, cfg Config, dryRun bool, verbose bool) {
 		}
 		log.Printf("Deleted torrent: %s", t.Name)
 	}
+
+	log.Println("Done checking torrents")
 }
