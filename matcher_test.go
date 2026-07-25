@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestMatchGlob(t *testing.T) {
 	tests := []struct {
