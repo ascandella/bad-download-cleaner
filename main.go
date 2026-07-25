@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -16,6 +17,7 @@ func main() {
 	once := flag.Bool("once", false, "Run once and exit (default: poll continuously)")
 	pollSec := flag.Int("interval", 30, "Poll interval in seconds (daemon mode only)")
 	dryRun := flag.Bool("dry-run", false, "Show what would be deleted without actually deleting")
+	verbose := flag.Bool("verbose", false, "Log per-file match details")
 	flag.Parse()
 
 	_ = godotenv.Load()
@@ -35,7 +37,7 @@ func main() {
 	log.Println("Logged in successfully")
 
 	if *once {
-		run(client, cfg, *dryRun)
+		run(client, cfg, *dryRun, *verbose)
 		return
 	}
 
@@ -49,7 +51,7 @@ func main() {
 	for {
 		select {
 		case <-ticker.C:
-			run(client, cfg, *dryRun)
+			run(client, cfg, *dryRun, *verbose)
 		case s := <-sig:
 			log.Printf("Received %s, shutting down", s)
 			return
@@ -57,7 +59,7 @@ func main() {
 	}
 }
 
-func run(client *Client, cfg Config, dryRun bool) {
+func run(client *Client, cfg Config, dryRun bool, verbose bool) {
 	patterns, err := client.GetExcludedFileNames()
 	if err != nil {
 		log.Printf("Error fetching excluded file names: %v", err)
@@ -95,20 +97,24 @@ func run(client *Client, cfg Config, dryRun bool) {
 			continue
 		}
 
-		allExcluded := true
+		var excludedFiles []TorrentFile
 		for _, f := range files {
-			if !matchesAnyPattern(f.Name, patterns) {
-				allExcluded = false
-				break
+			base := filepath.Base(f.Name)
+			matched := matchesAnyPattern(base, patterns)
+			if verbose {
+				log.Printf("  %s (base: %s) excluded=%v", f.Name, base, matched)
+			}
+			if matched {
+				excludedFiles = append(excludedFiles, f)
 			}
 		}
 
-		if !allExcluded {
+		if len(excludedFiles) == 0 {
 			continue
 		}
 
-		log.Printf("ALL FILES EXCLUDED in %s - torrent will never progress:", t.Name)
-		for _, f := range files {
+		log.Printf("EXCLUDED FILES FOUND in %s:", t.Name)
+		for _, f := range excludedFiles {
 			log.Printf("  - %s", f.Name)
 		}
 

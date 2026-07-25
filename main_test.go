@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestMatchGlob(t *testing.T) {
 	tests := []struct {
@@ -51,5 +54,29 @@ func TestMatchesAnyPatternCaseInsensitive(t *testing.T) {
 	patterns := []string{"*.scr"}
 	if !matchesAnyPattern("SETUP.SCR", patterns) {
 		t.Error("expected case-insensitive match via matchesAnyPattern")
+	}
+}
+
+func TestMatchWithPaths(t *testing.T) {
+	patterns := []string{"*.exe", "*.scr"}
+
+	// Without basename extraction, these would NOT match.
+	// The main code uses filepath.Base() before calling matchesAnyPattern.
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{"subdir/setup.exe", true},
+		{"deep/nested/path/game.scr", true},
+		{"subdir/video.mp4", false},
+		{"setup.exe", true},
+	}
+
+	for _, tc := range cases {
+		base := filepath.Base(tc.path)
+		got := matchesAnyPattern(base, patterns)
+		if got != tc.want {
+			t.Errorf("filepath.Base(%q) = %q, matchesAnyPattern = %v, want %v", tc.path, base, got, tc.want)
+		}
 	}
 }
